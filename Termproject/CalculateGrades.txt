@@ -1,0 +1,116 @@
+#include <stdio.h>
+#include <string.h>
+
+#define MAX_STUDENTS 20  // Change MAX_STUDENTS to 20
+#define MAX_ANSWERS 100
+
+typedef struct {
+    char name[21];
+    char tc[12];
+    char id[9];
+    char bookletType;
+    char answers[MAX_ANSWERS + 1];
+} Student;
+
+typedef struct {
+    char bookletType;
+    char answerKey[MAX_ANSWERS + 1];
+} AnswerKey;
+
+void calculateGrades(Student students[], int studentCount, AnswerKey answerKeys[], int keyCount, FILE *gradesFile) {
+    for (int i = 0; i < studentCount; i++) {
+        int correct = 0, wrong = 0, empty = 0;
+        char *studentAnswers = students[i].answers;
+        char bookletType = students[i].bookletType;
+
+        // Cevap anahtarını bul
+        char *answerKey = NULL;
+        for (int j = 0; j < keyCount; j++) {
+            if (answerKeys[j].bookletType == bookletType) {
+                answerKey = answerKeys[j].answerKey;
+                break;
+            }
+        }
+
+        if (!answerKey) {
+            fprintf(stderr, "Hata: %s isimli öğrenci için cevap anahtarı bulunamadı!\n", students[i].name);
+            continue;
+        }
+
+        // Not hesaplama
+        for (int k = 0; k < MAX_ANSWERS; k++) {
+            if (studentAnswers[k] == ' ') {
+                empty++;
+            } else if (studentAnswers[k] == answerKey[k]) {
+                correct++;
+            } else {
+                wrong++;
+            }
+        }
+
+        // Notu dosyaya yaz
+        fprintf(gradesFile, "%s %s %s %c %d %d %d\n",
+                students[i].name, students[i].tc, students[i].id, bookletType, correct, wrong, empty);
+    }
+}
+
+int main() {
+    FILE *cardsFile = fopen("Cards.txt", "r");
+    FILE *keysFile = fopen("AnswerKeys.txt", "r");
+    FILE *gradesFile = fopen("Grades.txt", "w");
+
+    if (!cardsFile || !keysFile || !gradesFile) {
+        printf("Dosyalar açılamadı!\n");
+        return 1;
+    }
+
+    Student students[MAX_STUDENTS];
+    AnswerKey answerKeys[4]; // A, B, C, D kitapçık türleri için
+    int studentCount = 0, keyCount = 0;
+
+    // Cards.txt'yi oku
+    char line[256];
+    while (fgets(line, sizeof(line), cardsFile)) {
+        if (studentCount >= MAX_STUDENTS) {
+            break;  // Stop if we have already processed 20 students
+        }
+
+        strncpy(students[studentCount].name, line, 20);
+        students[studentCount].name[20] = '\0';
+
+        strncpy(students[studentCount].tc, line + 20, 11);
+        students[studentCount].tc[11] = '\0';
+
+        strncpy(students[studentCount].id, line + 31, 8);
+        students[studentCount].id[8] = '\0';
+
+        students[studentCount].bookletType = line[40];
+
+        strncpy(students[studentCount].answers, line + 41, MAX_ANSWERS);
+        students[studentCount].answers[MAX_ANSWERS] = '\0';
+
+        studentCount++;
+    }
+
+    // AnswerKeys.txt'yi oku
+    while (fgets(line, sizeof(line), keysFile)) {
+        if (keyCount >= 4) {
+            break;  // Stop if we have already processed 4 answer keys
+        }
+
+        answerKeys[keyCount].bookletType = line[0];
+        strncpy(answerKeys[keyCount].answerKey, line + 1, MAX_ANSWERS);
+        answerKeys[keyCount].answerKey[MAX_ANSWERS] = '\0';
+        keyCount++;
+    }
+
+    // Not hesapla
+    calculateGrades(students, studentCount, answerKeys, keyCount, gradesFile);
+
+    fclose(cardsFile);
+    fclose(keysFile);
+    fclose(gradesFile);
+
+    printf("Notlar Grades.txt dosyasına yazıldı.\n");
+    return 0;
+}
